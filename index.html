@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Country Distance Analyzer</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f5f8fa;
+            color: #333;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        .subtitle {
+            color: #7f8c8d;
+            margin-bottom: 25px;
+            text-align: center;
+            max-width: 600px;
+        }
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            width: 100%;
+            max-width: 800px;
+        }
+        input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 2px solid #dfe6e9;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        input:focus {
+            border-color: #3498db;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+        }
+        button {
+            padding: 12px 25px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+        button:hover {
+            background-color: #2980b9;
+            transform: translateY(-2px);
+        }
+        button:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+            transform: none;
+        }
+        #map {
+            height: 500px;
+            width: 100%;
+            max-width: 800px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            border: 1px solid #dfe6e9;
+            z-index: 1;
+        }
+        .country-info {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 800px;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .country-card {
+            flex: 1;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: transform 0.3s;
+        }
+        .country-card:hover {
+            transform: translateY(-5px);
+        }
+        .country-name {
+            font-weight: bold;
+            margin-bottom: 8px;
+            font-size: 18px;
+            text-align: center;
+            color: #2c3e50;
+        }
+        .country-flag {
+            width: 100%;
+            max-width: 160px;
+            height: auto;
+            aspect-ratio: 3/2;
+            border: 1px solid #eee;
+            border-radius: 6px;
+            margin: 12px 0;
+            object-fit: cover;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .capital-info {
+            font-size: 15px;
+            color: #7f8c8d;
+        }
+        .distance-display {
+            width: 100%;
+            max-width: 800px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .distance-label {
+            font-size: 16px;
+            color: #7f8c8d;
+            margin-bottom: 5px;
+        }
+        .distance-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #e74c3c;
+            margin: 10px 0;
+        }
+        .distance-comment {
+            font-size: 16px;
+            line-height: 1.5;
+            color: #555;
+            margin-top: 15px;
+        }
+        .travel-tip {
+            font-size: 14px;
+            color: #3498db;
+            margin-top: 10px;
+            font-style: italic;
+        }
+        @media (max-width: 700px) {
+            .controls {
+                flex-direction: column;
+            }
+            .country-info {
+                flex-direction: column;
+            }
+            .country-card {
+                max-width: 100%;
+            }
+            input, button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>🌍 Country Distance Analyzer</h1>
+    <p class="subtitle">Compare any two countries and see the distance between their capitals</p>
+    
+    <div class="controls">
+        <input type="text" id="country1" placeholder="First country (e.g. France)">
+        <input type="text" id="country2" placeholder="Second country (e.g. Brazil)">
+        <button id="calculate">Calculate Distance</button>
+    </div>
+    
+    <div id="map"></div>
+    
+    <div class="country-info" id="country-info" style="display: none;">
+        <div class="country-card">
+            <div class="country-name" id="country1-name"></div>
+            <img class="country-flag" id="country1-flag" src="" alt="Country flag">
+            <div class="capital-info" id="country1-capital"></div>
+        </div>
+        <div class="country-card">
+            <div class="country-name" id="country2-name"></div>
+            <img class="country-flag" id="country2-flag" src="" alt="Country flag">
+            <div class="capital-info" id="country2-capital"></div>
+        </div>
+    </div>
+    
+    <div class="distance-display">
+        <div class="distance-label">Straight-line distance between capitals:</div>
+        <div class="distance-value" id="distance">-</div>
+        <div class="distance-comment" id="distance-comment">Enter two countries above to see their distance and travel information</div>
+        <div class="travel-tip" id="travel-tip"></div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script>
+        // Initialize map
+        const map = L.map('map').setView([20, 0], 2);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Map elements
+        let marker1, marker2, distanceLine;
+
+        document.getElementById('calculate').addEventListener('click', async function() {
+            const country1 = document.getElementById('country1').value.trim();
+            const country2 = document.getElementById('country2').value.trim();
+            const calculateBtn = document.getElementById('calculate');
+            
+            if (!country1 || !country2) {
+                showError('Please enter both country names');
+                return;
+            }
+
+            try {
+                // Show loading state
+                calculateBtn.textContent = 'Calculating...';
+                calculateBtn.disabled = true;
+                
+                // Fetch country data
+                const [data1, data2] = await Promise.all([
+                    fetchCountryData(country1),
+                    fetchCountryData(country2)
+                ]);
+
+                if (!data1 || !data2) {
+                    showError('One or both countries not found. Please check spelling.');
+                    return;
+                }
+
+                // Get capital coordinates
+                const coords1 = data1.capitalInfo?.latlng;
+                const coords2 = data2.capitalInfo?.latlng;
+                
+                if (!coords1 || !coords2) {
+                    showError('Could not find capital coordinates for one or both countries');
+                    return;
+                }
+
+                // Clear previous markers and line
+                if (marker1) map.removeLayer(marker1);
+                if (marker2) map.removeLayer(marker2);
+                if (distanceLine) map.removeLayer(distanceLine);
+
+                // Add new markers with custom icons
+                const redIcon = L.icon({
+                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41],
+                    popupAnchor: [1, -34]
+                });
+                
+                const blueIcon = L.icon({
+                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41],
+                    popupAnchor: [1, -34]
+                });
+
+                marker1 = L.marker([coords1[0], coords1[1]], {icon: redIcon}).addTo(map)
+                    .bindPopup(`<b>${data1.name.common}</b><br>Capital: ${data1.capital[0]}`);
+                
+                marker2 = L.marker([coords2[0], coords2[1]], {icon: blueIcon}).addTo(map)
+                    .bindPopup(`<b>${data2.name.common}</b><br>Capital: ${data2.capital[0]}`);
+
+                // Add red line with animation
+                distanceLine = L.polyline(
+                    [[coords1[0], coords1[1]], [coords2[0], coords2[1]]],
+                    {
+                        color: '#e74c3c',
+                        weight: 4,
+                        opacity: 0.8,
+                        dashArray: null,
+                        className: 'animated-line'
+                    }
+                ).addTo(map);
+
+                // Calculate distance
+                const distance = calculateDistance(coords1[0], coords1[1], coords2[0], coords2[1]);
+                document.getElementById('distance').textContent = `${distance.toLocaleString()} km`;
+                
+                // Display distance commentary
+                const {comment, tip} = getDistanceInfo(distance, data1.name.common, data2.name.common);
+                document.getElementById('distance-comment').textContent = comment;
+                document.getElementById('travel-tip').textContent = tip;
+
+                // Show country info
+                document.getElementById('country1-name').textContent = data1.name.common;
+                document.getElementById('country1-flag').src = data1.flags.png;
+                document.getElementById('country1-flag').alt = `${data1.name.common} flag`;
+                document.getElementById('country1-capital').textContent = `Capital: ${data1.capital[0]}`;
+                
+                document.getElementById('country2-name').textContent = data2.name.common;
+                document.getElementById('country2-flag').src = data2.flags.png;
+                document.getElementById('country2-flag').alt = `${data2.name.common} flag`;
+                document.getElementById('country2-capital').textContent = `Capital: ${data2.capital[0]}`;
+                
+                document.getElementById('country-info').style.display = 'flex';
+
+                // Zoom to show both countries with padding
+                map.fitBounds([
+                    [coords1[0], coords1[1]],
+                    [coords2[0], coords2[1]]
+                ], {padding: [50, 50]});
+
+            } catch (error) {
+                console.error('Error:', error);
+                showError('An error occurred. Please try again.');
+            } finally {
+                calculateBtn.textContent = 'Calculate Distance';
+                calculateBtn.disabled = false;
+            }
+        });
+
+        function getDistanceInfo(distance, country1, country2) {
+            // Calculate approximate travel times
+            const drivingHours = Math.max(1, Math.round(distance / 80)); // Average 80 km/h including stops
+            const flightHours = Math.max(1, Math.round(distance / 800)); // Average 800 km/h including airport time
+            const walkingDays = Math.max(1, Math.round(distance / 30)); // Average 30 km/day
+            
+            let comment, tip;
+            
+            if (distance < 50) {
+                comment = `${country1} and ${country2} are extremely close neighbors!`;
+                tip = `You could walk this in about ${walkingDays} day${walkingDays !== 1 ? 's' : ''} (30km/day) or drive in under an hour.`;
+            } 
+            else if (distance < 200) {
+                comment = `${country1} and ${country2} are very close geographically.`;
+                tip = `Driving would take about ${drivingHours} hour${drivingHours !== 1 ? 's' : ''}, or a ${flightHours > 0 ? flightHours + ' hour flight' : 'short flight'}.`;
+            }
+            else if (distance < 500) {
+                comment = `${country1} and ${country2} are moderately close to each other.`;
+                tip = `Consider a ${flightHours} hour flight or ${drivingHours} hour drive (${Math.round(distance/100)} hours per 100km).`;
+            }
+            else if (distance < 1000) {
+                comment = `${country1} and ${country2} are significantly apart.`;
+                tip = `A direct flight would take about ${flightHours} hour${flightHours !== 1 ? 's' : ''}. Driving (${drivingHours} hours) may require multiple days.`;
+            }
+            else if (distance < 3000) {
+                comment = `${country1} and ${country2} are quite distant from each other.`;
+                const flightText = flightHours < 2 ? 'short-haul' : flightHours < 5 ? 'medium-haul' : 'long-haul';
+                tip = `This ${flightText} flight (${flightHours} hours) crosses ${Math.round(distance/500)} time zones approximately.`;
+            }
+            else if (distance < 8000) {
+                const comparable = getComparableDistance(distance);
+                comment = `${country1} and ${country2} are very far apart (similar to ${comparable}).`;
+                tip = `Expect aflight of ${flightHours}+ hours. The time difference is about ${Math.round(distance/1660)} hours.`;
+            }
+            else {
+                const earthPercent = Math.round((distance/40075)*100);
+                comment = `${country1} and ${country2} are on nearly opposite sides of Earth!`;
+                tip = `This ${flightHours}+ hour journey covers ${earthPercent}% of Earth's circumference. They are very far away.`;
+            }
+            
+            return {comment, tip};
+        }
+
+        function getComparableDistance(distance) {
+            const comparisons = [
+                {dist: 1000, text: "Paris to Rome (1,100 km)"},
+                {dist: 1500, text: "London to Moscow (2,500 km)"},
+                {dist: 3000, text: "New York to Los Angeles (3,900 km)"},
+                {dist: 5500, text: "London to New York (5,500 km)"},
+                {dist: 8000, text: "Sydney to Tokyo (7,800 km)"},
+                {dist: 10000, text: "Singapore to London (10,800 km)"},
+                {dist: 15000, text: "Johannesburg to Sydney (11,000 km)"},
+                {dist: 20000, text: "maximum Earth distance (20,000 km)"}
+            ];
+            
+            for (let comp of comparisons) {
+                if (distance < comp.dist) return comp.text;
+            }
+            return comparisons[comparisons.length-1].text;
+        }
+
+        function showError(message) {
+            document.getElementById('distance-comment').textContent = message;
+            document.getElementById('distance-comment').style.color = '#e74c3c';
+            document.getElementById('travel-tip').textContent = '';
+        }
+
+        async function fetchCountryData(countryName) {
+            try {
+                const response = await fetch(`https://restcountries.com/v3.1/name/${encodeURIComponent(countryName)}`);
+                if (!response.ok) return null;
+                const data = await response.json();
+                // Find exact match if available
+                const exactMatch = data.find(c => 
+                    c.name.common.toLowerCase() === countryName.toLowerCase() || 
+                    c.name.official.toLowerCase() === countryName.toLowerCase()
+                );
+                return exactMatch || data[0];
+            } catch (error) {
+                console.error('Error fetching country data:', error);
+                return null;
+            }
+        }
+
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Earth radius in km
+            const φ1 = lat1 * Math.PI/180;
+            const φ2 = lat2 * Math.PI/180;
+            const Δφ = (lat2-lat1) * Math.PI/180;
+            const Δλ = (lon2-lon1) * Math.PI/180;
+            
+            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                      Math.cos(φ1) * Math.cos(φ2) *
+                      Math.sin(Δλ/2) * Math.sin(Δλ/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            
+            return Math.round(R * c);
+        }
+    </script>
+</body>
+</html>
